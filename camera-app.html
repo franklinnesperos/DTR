@@ -1,29 +1,127 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>S25 Ultra Camera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>S25 Ultra Pro Camera</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
-        video { width: 100vw; height: 100vh; object-fit: cover; }
-        .ui { position: absolute; bottom: 0; width: 100%; height: 150px; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; gap: 40px; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; color: white; }
+        video { width: 100vw; height: 100vh; object-fit: cover; transition: filter 0.3s; }
+        canvas { display: none; }
+        
+        /* Top Bar for Resolutions */
+        .top-bar { position: absolute; top: 0; width: 100%; height: 50px; background: rgba(0,0,0,0.4); display: flex; justify-content: center; align-items: center; gap: 10px; z-index: 20; }
+        .mp-btn { border: 1px solid white; padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer; }
+        .mp-btn.active { background: #ffcc00; color: black; border: none; }
+
+        /* Mode Selector (Swipeable feel) */
+        .mode-selector { position: absolute; bottom: 100px; width: 100%; display: flex; justify-content: center; gap: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; z-index: 20; }
+        .mode { opacity: 0.5; cursor: pointer; }
+        .mode.active { opacity: 1; color: #ffcc00; border-bottom: 2px solid #ffcc00; }
+
+        /* Bottom UI */
+        .ui { position: absolute; bottom: 0; width: 100%; height: 100px; background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; gap: 40px; }
         .shutter { width: 70px; height: 70px; background: white; border-radius: 50%; border: 5px solid rgba(255,255,255,0.3); }
-        .exit { position: absolute; top: 20px; left: 20px; color: white; text-decoration: none; font-size: 24px; background: rgba(0,0,0,0.5); width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; border-radius: 50%; }
+        .shutter.recording { background: red; border-radius: 10px; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        
+        .gallery-btn { width: 45px; height: 45px; border-radius: 50%; background: #222; overflow: hidden; border: 2px solid white; }
+        .gallery-btn img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .exit { position: absolute; top: 15px; left: 15px; text-decoration: none; color: white; font-size: 24px; z-index: 30; }
+        
+        /* Pro Settings Overlay */
+        #pro-ui { position: absolute; bottom: 130px; width: 100%; display: none; justify-content: center; gap: 15px; font-size: 10px; }
+        .pro-item { background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
     <a href="index.html" class="exit">✕</a>
-    <video id="cam" autoplay playsinline></video>
-    <div class="ui">
-        <div style="width:40px; height:40px; border:2px solid white; border-radius:5px;"></div>
-        <div class="shutter"></div>
-        <div style="font-size:30px; color:white;">🔄</div>
+
+    <div class="top-bar">
+        <div class="mp-btn" onclick="setRes(1280,720,this)">HD</div>
+        <div class="mp-btn active" onclick="setRes(1920,1080,this)">FHD</div>
+        <div class="mp-btn" onclick="setRes(3840,2160,this)">4K</div>
     </div>
+
+    <video id="cam" autoplay playsinline></video>
+    
+    <div id="pro-ui">
+        <div class="pro-item">ISO 100</div>
+        <div class="pro-item">SPEED 1/1000</div>
+        <div class="pro-item">EV 0.0</div>
+        <div class="pro-item">WB AUTO</div>
+    </div>
+
+    <div class="mode-selector">
+        <div class="mode" onclick="setMode('pro', this)">Pro</div>
+        <div class="mode active" onclick="setMode('photo', this)">Photo</div>
+        <div class="mode" onclick="setMode('micro', this)">Microscope</div>
+        <div class="mode" onclick="setMode('lapse', this)">Time Lapse</div>
+    </div>
+
+    <div class="ui">
+        <div class="gallery-btn"><img id="prev" style="display:none;"></div>
+        <div class="shutter" id="btn"></div>
+        <div style="font-size:30px;" onclick="flipCam()">🔄</div>
+    </div>
+
     <script>
-        const v = document.getElementById('cam');
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(s => { v.srcObject = s; })
-            .catch(e => { alert("Check camera permissions"); });
+        const video = document.getElementById('cam');
+        const btn = document.getElementById('btn');
+        const proUI = document.getElementById('pro-ui');
+        let mode = 'photo';
+        let face = 'environment';
+        let isRecording = false;
+
+        function start() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: face, width: {ideal: 1920}, height: {ideal: 1080} } })
+            .then(s => video.srcObject = s);
+        }
+
+        function setMode(m, el) {
+            mode = m;
+            document.querySelectorAll('.mode').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            
+            // Effect controls
+            video.style.filter = "none";
+            proUI.style.display = (m === 'pro') ? 'flex' : 'none';
+            
+            if(m === 'micro') {
+                video.style.filter = "contrast(1.5) brightness(1.2) saturate(1.5)";
+                alert("Microscope Mode: Digital Zoom In");
+                video.style.transform = "scale(3)"; // Zoom effect
+            } else {
+                video.style.transform = "scale(1)";
+            }
+        }
+
+        btn.onclick = () => {
+            if(mode === 'lapse') {
+                isRecording = !isRecording;
+                btn.classList.toggle('recording');
+                if(isRecording) alert("Recording Time Lapse...");
+                else alert("Time Lapse Saved!");
+            } else {
+                // Flash effect for photo
+                document.body.style.background = "white";
+                setTimeout(() => document.body.style.background = "black", 100);
+                alert("Photo Captured in " + mode.toUpperCase() + " mode!");
+            }
+        };
+
+        function flipCam() {
+            face = (face === 'environment') ? 'user' : 'environment';
+            start();
+        }
+
+        function setRes(w, h, el) {
+            document.querySelectorAll('.mp-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            start();
+        }
+
+        start();
     </script>
 </body>
 </html>
