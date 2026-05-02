@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Frank's House Planner</title>
+    <style>
+        body { margin: 0; background: #222; color: white; font-family: sans-serif; overflow: hidden; }
+        .header { background: #333; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #00a0e9; }
+        .toolbar { background: #444; padding: 10px; display: flex; gap: 10px; overflow-x: auto; }
+        
+        button { background: #555; color: white; border: none; padding: 8px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; }
+        button.active { background: #00a0e9; }
+        
+        #canvasContainer { position: relative; width: 100vw; height: calc(100vh - 120px); background: #eee; cursor: crosshair; }
+        canvas { display: block; background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: 20px 20px; }
+        
+        .stats { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 5px; font-size: 12px; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <span onclick="window.location.href='index.html'">⬅ Back</span>
+    <span style="font-weight: bold;">S25 House Planner</span>
+    <button onclick="clearCanvas()" style="background:#d9534f;">Reset</button>
+</div>
+
+<div class="toolbar">
+    <button id="drawBtn" class="active" onclick="setMode('draw')">✏️ Draw Wall</button>
+    <button id="deleteBtn" onclick="setMode('delete')">🗑️ Delete</button>
+    <button id="lockBtn" onclick="toggleLock()">🔒 Lock All</button>
+</div>
+
+<div id="canvasContainer">
+    <canvas id="plannerCanvas"></canvas>
+    <div class="stats" id="stats">Total Area: 0 sqm</div>
+</div>
+
+<script>
+    const canvas = document.getElementById('plannerCanvas');
+    const ctx = canvas.getContext('2d');
+    const stats = document.getElementById('stats');
+    
+    let walls = [];
+    let isDrawing = false;
+    let startPoint = null;
+    let mode = 'draw';
+    let isLocked = false;
+
+    // Resize canvas
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight - 120;
+        draw();
+    }
+    window.onresize = resize;
+    resize();
+
+    function setMode(m) {
+        if(isLocked && m !== 'lock') return;
+        mode = m;
+        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        if(m === 'draw') document.getElementById('drawBtn').classList.add('active');
+        if(m === 'delete') document.getElementById('deleteBtn').classList.add('active');
+    }
+
+    function toggleLock() {
+        isLocked = !isLocked;
+        document.getElementById('lockBtn').innerText = isLocked ? "🔓 Unlock" : "🔒 Lock All";
+        document.getElementById('lockBtn').classList.toggle('active');
+        if(isLocked) mode = 'none'; else setMode('draw');
+    }
+
+    function clearCanvas() {
+        if(confirm("Burahin lahat ng plano?")) {
+            walls = [];
+            draw();
+        }
+    }
+
+    canvas.addEventListener('touchstart', (e) => {
+        if(isLocked) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.touches[0].clientX - rect.left;
+        const y = e.touches[0].clientY - rect.top;
+
+        if (mode === 'draw') {
+            isDrawing = true;
+            startPoint = { x, y };
+        } else if (mode === 'delete') {
+            deleteWall(x, y);
+        }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (!isDrawing || isLocked) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.touches[0].clientX - rect.left;
+        const y = e.touches[0].clientY - rect.top;
+        draw(x, y); // Live preview
+    });
+
+    canvas.addEventListener('touchend', (e) => {
+        if (!isDrawing || isLocked) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.changedTouches[0].clientX - rect.left;
+        const y = e.changedTouches[0].clientY - rect.top;
+        
+        walls.push({ x1: startPoint.x, y1: startPoint.y, x2: x, y2: y });
+        isDrawing = false;
+        draw();
+        calculateArea();
+    });
+
+    function deleteWall(x, y) {
+        walls = walls.filter(w => {
+            const dist = Math.abs((w.y2 - w.y1) * x - (w.x2 - w.x1) * y + w.x2 * w.y1 - w.y2 * w.x1) / 
+                         Math.sqrt(Math.pow(w.y2 - w.y1, 2) + Math.pow(w.x2 - w.x1, 2));
+            return dist > 10; // Delete if within 10 pixels
+        });
+        draw();
+        calculateArea();
+    }
+
+    function draw(tempX, tempY) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw existing walls
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        
+        walls.forEach(w => {
+            ctx.beginPath();
+            ctx.moveTo(w.x1, w.y1);
+            ctx.lineTo(w.x2, w.y2);
+            ctx.stroke();
+            
+            // Measure label
+            const len = Math.sqrt(Math.pow(w.x2-w.x1, 2) + Math.pow(w.y2-w.y1, 2)) / 20; // 20px = 1 meter
+            ctx.fillStyle = "blue";
+            ctx.fillText(len.toFixed(1) + "m", (w.x1+w.x2)/2, (w.y1+w.y2)/2 - 10);
+        });
+
+        // Draw temporary wall while dragging
+        if (isDrawing) {
+            ctx.strokeStyle = "#00a0e9";
+            ctx.beginPath();
+            ctx.moveTo(startPoint.x, startPoint.y);
+            ctx.lineTo(tempX, tempY);
+            ctx.stroke();
+        }
+    }
+
+    function calculateArea() {
+        // Simplified SQM calculation (based on bounding box of walls)
+        if(walls.length < 2) { stats.innerText = "Total Area: 0 sqm"; return; }
+        let minX = Math.min(...walls.map(w => Math.min(w.x1, w.x2)));
+        let maxX = Math.max(...walls.map(w => Math.max(w.x1, w.x2)));
+        let minY = Math.min(...walls.map(w => Math.min(w.y1, w.y2)));
+        let maxY = Math.max(...walls.map(w => Math.max(w.y1, w.y2)));
+        
+        const w = (maxX - minX) / 20;
+        const h = (maxY - minY) / 20;
+        const area = w * h;
+        stats.innerText = `Approx Floor Area: ${area.toFixed(2)} sqm`;
+    }
+</script>
+
+</body>
+</html>
