@@ -5,7 +5,7 @@
     <title>Daily Time Sheet No. 1 - Franklin Nesperos</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 10px; color: #333; }
-        .sheet { background: white; padding: 15px; max-width: 950px; margin: auto; border: 1px solid #000; }
+        .sheet { background: white; padding: 15px; max-width: 950px; margin: auto; border: 1px solid #000; position: relative; }
         .header-title { text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 10px; }
         .info-section { display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px; margin-bottom: 10px; font-size: 0.8rem; font-weight: bold; }
         .header-input { border: none; border-bottom: 1px solid #000; font-family: inherit; font-size: 0.8rem; font-weight: bold; width: 70%; padding: 0 5px; }
@@ -23,16 +23,24 @@
         .comment-input { text-align: left; width: 98%; }
         .total-row { background: #fff9c4; color: #333; font-size: 11px; }
         
-        /* Signature Styles */
+        /* Signature Section */
         .signature-section { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; font-size: 0.8rem; font-weight: bold; }
-        .sig-container { text-align: center; position: relative; }
-        canvas { border-bottom: 1px solid #000; width: 100%; height: 80px; cursor: crosshair; touch-action: none; background: #fafafa; }
-        .sig-label { margin-top: 5px; }
-        .clear-btn { font-size: 8px; color: red; cursor: pointer; text-decoration: underline; display: block; margin-top: 2px; }
+        .sig-box { text-align: center; cursor: pointer; border-top: 1px solid #000; padding-top: 5px; min-height: 50px; }
+        .sig-display { width: 100%; height: 50px; object-fit: contain; display: none; }
+
+        /* Modal / Popup Styles */
+        #sig-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; text-align: center; width: 90%; max-width: 400px; }
+        canvas { border: 1px solid #ccc; background: #fafafa; width: 100%; height: 200px; touch-action: none; }
+        .modal-btns { margin-top: 15px; display: flex; gap: 10px; }
+        .m-btn { flex: 1; padding: 10px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-clear { background: #ff4444; color: white; }
+        .btn-done { background: #28a745; color: white; }
 
         .btn-container { margin-top: 15px; display: flex; gap: 10px; }
-        button { flex: 1; padding: 12px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; background: #007bff; color: white; }
-        @media print { .btn-container, .clear-btn { display: none; } .sheet { border: 1px solid #000; } canvas { background: transparent; } }
+        button.main-btn { flex: 1; padding: 12px; border-radius: 5px; border: none; font-weight: bold; cursor: pointer; background: #007bff; color: white; }
+        
+        @media print { .btn-container, #sig-modal { display: none; } .sheet { border: 1px solid #000; } }
     </style>
 </head>
 <body>
@@ -75,20 +83,31 @@
     </table>
 
     <div class="signature-section">
-        <div class="sig-container">
-            <canvas id="sig-employee"></canvas>
+        <div class="sig-box" onclick="openModal('employee')">
+            <img id="display-employee" class="sig-display">
+            <div id="text-employee">CLICK TO SIGN</div>
             <div class="sig-label">EMPLOYEE</div>
-            <span class="clear-btn" onclick="clearSig('sig-employee')">[Clear Signature]</span>
         </div>
-        <div class="sig-container">
-            <canvas id="sig-manager"></canvas>
+        <div class="sig-box" onclick="openModal('manager')">
+            <img id="display-manager" class="sig-display">
+            <div id="text-manager">CLICK TO SIGN</div>
             <div class="sig-label">MANAGER</div>
-            <span class="clear-btn" onclick="clearSig('sig-manager')">[Clear Signature]</span>
         </div>
     </div>
 
     <div class="btn-container">
-        <button onclick="window.print()">PRINT / SAVE AS PDF</button>
+        <button class="main-btn" onclick="window.print()">PRINT / SAVE AS PDF</button>
+    </div>
+</div>
+
+<div id="sig-modal">
+    <div class="modal-content">
+        <h3>Sign Here</h3>
+        <canvas id="sig-canvas"></canvas>
+        <div class="modal-btns">
+            <button class="m-btn btn-clear" onclick="clearCanvas()">Clear</button>
+            <button class="m-btn btn-done" onclick="saveSig()">Done</button>
+        </div>
     </div>
 </div>
 
@@ -104,11 +123,9 @@
     function buildTable() {
         const periodEndVal = document.getElementById('periodEndDate').value;
         if (!periodEndVal) return;
-
         const endDate = new Date(periodEndVal);
         const startDate = new Date(endDate);
         startDate.setDate(endDate.getDate() - 13); 
-
         tbody.innerHTML = "";
         for (let i = 0; i < 14; i++) {
             let currentDate = new Date(startDate);
@@ -116,18 +133,12 @@
             let dateString = `${currentDate.getDate()} ${months[currentDate.getMonth()]}`;
             let dayName = days[currentDate.getDay()];
             let isWeekEnd = (i === 6); 
-
             for (let layer = 0; layer < 3; layer++) {
                 let cellStyle = (isWeekEnd && layer === 2) ? "week-break-cell" : "";
                 let row = `<tr class="${dayName === "SUNDAY" ? "sunday-row" : (dayName === "SATURDAY" ? "saturday-row" : "")}">`;
-                
-                if (layer === 0) {
-                    row += `<td rowspan="3" class="${cellStyle}" style="text-align: left; background: #fafafa; color: inherit; font-weight: bold;">${dayName}<br>${dateString}</td>`;
-                }
-                
+                if (layer === 0) row += `<td rowspan="3" class="${cellStyle}" style="text-align: left; background: #fafafa; color: inherit; font-weight: bold;">${dayName}<br>${dateString}</td>`;
                 let defStart = (dayName !== "SUNDAY" && layer === 0) ? "07:00" : "";
                 let defEnd = (dayName !== "SUNDAY" && layer === 0) ? "17:00" : "";
-
                 row += `
                     <td class="${cellStyle}"><input type="time" id="in-${i}-${layer}" value="${defStart}" onchange="calc()"></td>
                     <td class="${cellStyle}"><input type="time" id="out-${i}-${layer}" value="${defEnd}" onchange="calc()"></td>
@@ -151,18 +162,14 @@
                 const tOut = document.getElementById(`out-${i}-${layer}`).value;
                 const otVal = parseFloat(document.getElementById(`ot-${i}-${layer}`).value) || 0;
                 if (tIn && tOut) {
-                    const start = tIn.split(':');
-                    const end = tOut.split(':');
-                    const startDateObj = new Date(0, 0, 0, start[0], start[1], 0);
-                    const endDateObj = new Date(0, 0, 0, end[0], end[1], 0);
-                    let diff = (endDateObj.getTime() - startDateObj.getTime()) / 1000 / 60 / 60;
-                    if (diff < 0) diff += 24;
-                    let dayHrs = diff > 0 ? (layer === 0 ? diff - 0.5 : diff) : 0;
-                    document.getElementById(`sub-${i}-${layer}`).innerText = dayHrs.toFixed(1);
-                    grandTotal += dayHrs;
-                } else {
-                    document.getElementById(`sub-${i}-${layer}`).innerText = "0.0";
-                }
+                    const start = tIn.split(':'), end = tOut.split(':');
+                    const sO = new Date(0,0,0,start[0],start[1],0), eO = new Date(0,0,0,end[0],end[1],0);
+                    let d = (eO.getTime() - sO.getTime()) / 3600000;
+                    if (d < 0) d += 24;
+                    let h = d > 0 ? (layer === 0 ? d - 0.5 : d) : 0;
+                    document.getElementById(`sub-${i}-${layer}`).innerText = h.toFixed(1);
+                    grandTotal += h;
+                } else { document.getElementById(`sub-${i}-${layer}`).innerText = "0.0"; }
                 otTotal += otVal;
             }
         }
@@ -170,54 +177,53 @@
         document.getElementById('overtimeTotal').innerText = otTotal.toFixed(1);
     }
 
-    // Canvas Signature Logic
-    function initSig(id) {
-        const canvas = document.getElementById(id);
-        const ctx = canvas.getContext("2d");
-        let drawing = false;
+    // Modal Signature Logic
+    let activeSig = "";
+    const modal = document.getElementById('sig-modal');
+    const canvas = document.getElementById('sig-canvas');
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
 
-        function getPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                x: (e.clientX || e.touches[0].clientX) - rect.left,
-                y: (e.clientY || e.touches[0].clientY) - rect.top
-            };
-        }
-
-        function start(e) { drawing = true; draw(e); }
-        function end() { drawing = false; ctx.beginPath(); }
-        function draw(e) {
-            if (!drawing) return;
-            const pos = getPos(e);
-            ctx.lineWidth = 2;
-            ctx.lineCap = "round";
-            ctx.strokeStyle = "#000";
-            ctx.lineTo(pos.x, pos.y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y);
-        }
-
-        canvas.addEventListener("mousedown", start);
-        canvas.addEventListener("mousemove", draw);
-        canvas.addEventListener("mouseup", end);
-        canvas.addEventListener("touchstart", (e) => { e.preventDefault(); start(e); });
-        canvas.addEventListener("touchmove", (e) => { e.preventDefault(); draw(e); });
-        canvas.addEventListener("touchend", end);
+    function openModal(type) {
+        activeSig = type;
+        modal.style.display = "flex";
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        clearCanvas();
     }
 
-    function clearSig(id) {
-        const canvas = document.getElementById(id);
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+    function saveSig() {
+        const dataURL = canvas.toDataURL();
+        const img = document.getElementById(`display-${activeSig}`);
+        const txt = document.getElementById(`text-${activeSig}`);
+        img.src = dataURL;
+        img.style.display = "block";
+        txt.style.display = "none";
+        modal.style.display = "none";
     }
 
-    window.onload = () => {
-        buildTable();
-        initSig('sig-employee');
-        initSig('sig-manager');
-    };
+    canvas.addEventListener("mousedown", () => drawing = true);
+    canvas.addEventListener("mousemove", (e) => {
+        if (!drawing) return;
+        const rect = canvas.getBoundingClientRect();
+        ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+        ctx.stroke(); ctx.beginPath(); ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    window.addEventListener("mouseup", () => { drawing = false; ctx.beginPath(); });
+
+    canvas.addEventListener("touchstart", (e) => { e.preventDefault(); drawing = true; });
+    canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault(); if (!drawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const t = e.touches[0];
+        ctx.lineWidth = 2; ctx.lineTo(t.clientX - rect.left, t.clientY - rect.top);
+        ctx.stroke(); ctx.beginPath(); ctx.moveTo(t.clientX - rect.left, t.clientY - rect.top);
+    });
+    canvas.addEventListener("touchend", () => { drawing = false; ctx.beginPath(); });
+
+    window.onload = buildTable;
 </script>
-
 </body>
 </html>
