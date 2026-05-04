@@ -3,18 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JP Interiors - DTR Final Sync</title>
+    <title>JP Interiors - DTR Auto-Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: 'Arial', sans-serif; background: #444; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .controls { width: 100%; max-width: 850px; background: #222; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center; }
         .btn-main { background: #28a745; color: white; padding: 12px 25px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
         
-        #timesheet { background: white; width: 210mm; padding: 12mm; box-sizing: border-box; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: relative; }
+        #timesheet { background: white; width: 210mm; padding: 12mm; box-sizing: border-box; box-shadow: 0 0 20px rgba(0,0,0,0.5); position: relative; overflow: hidden; }
         
+        /* Light Blue Watermark */
         #timesheet::before {
             content: "JP INTERIORS\a LIMITED"; white-space: pre; position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg); font-size: 80px; color: rgba(0, 0, 0, 0.03);
+            transform: translate(-50%, -50%) rotate(-30deg); font-size: 80px; 
+            color: rgba(173, 216, 230, 0.2); /* Light Blue with low opacity */
             font-weight: 900; text-align: center; z-index: 0; pointer-events: none; width: 100%;
         }
 
@@ -27,7 +29,7 @@
         th { background: #f0f0f0; border: 1px solid #999; padding: 5px; text-transform: uppercase; }
         td { border: 1px solid #999; padding: 2px; text-align: center; height: 22px; }
         
-        .date-col { background: #f9f9f9; font-weight: bold; width: 100px; text-align: left; padding-left: 5px; }
+        .date-col { background: #f9f9f9; font-weight: bold; width: 110px; text-align: left; padding-left: 5px; }
         .sunday-text { color: red !important; }
         .week-gap { height: 15px; background: #eee; border: none; }
         
@@ -65,8 +67,8 @@
                 <div class="input-row"><label>POSITION:</label><input type="text" value="Plasterer"></div>
             </div>
             <div>
-                <div class="input-row"><label>PERIOD ENDING:</label><input type="date" id="period" onchange="syncDates()"></div>
-                <div class="input-row"><label>DATE:</label><input type="text" id="displayPeriod" readonly></div>
+                <div class="input-row"><label>DATE (START):</label><input type="date" id="startDate" onchange="syncFromStart()"></div>
+                <div class="input-row"><label>PERIOD ENDING:</label><input type="text" id="displayEnd" readonly placeholder="Auto-calculates..."></div>
             </div>
         </div>
 
@@ -135,11 +137,11 @@
         body.innerHTML = "";
         for (let w = 0; w < 2; w++) {
             for (let d = 0; d < 7; d++) {
-                const globalDayIdx = (w * 7) + d;
+                const globalIdx = (w * 7) + d;
                 for (let layer = 0; layer < 3; layer++) {
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        ${layer === 0 ? `<td class="date-col" rowspan="3" id="date-cell-${globalDayIdx}">---</td>` : ''}
+                        ${layer === 0 ? `<td class="date-col" rowspan="3" id="date-cell-${globalIdx}">---</td>` : ''}
                         <td><select class="t-select t-start" onchange="calc(this)">${timesList.map(t => `<option>${t}</option>`).join('')}</select></td>
                         <td><select class="t-select t-end" onchange="calc(this)">${timesList.map(t => `<option>${t}</option>`).join('')}</select></td>
                         <td class="row-total" style="font-weight:bold">0.0</td>
@@ -156,43 +158,41 @@
         }
     }
 
-    function syncDates() {
-        const periodVal = document.getElementById('period').value;
-        if(!periodVal) return;
+    function syncFromStart() {
+        const startVal = document.getElementById('startDate').value;
+        if(!startVal) return;
         
-        const endDate = new Date(periodVal);
-        document.getElementById('displayPeriod').value = endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const startDate = new Date(startVal);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 13); // 14 days total
 
-        // Calculate 14 days backward
+        document.getElementById('displayEnd').value = endDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
         for(let i=0; i<14; i++) {
-            let d = new Date(endDate);
-            d.setDate(endDate.getDate() - (13 - i)); // 13 is the offset to make the last row the Period Ending
+            let curr = new Date(startDate);
+            curr.setDate(startDate.getDate() + i);
             
             const cell = document.getElementById(`date-cell-${i}`);
-            const dayName = dayNames[d.getDay()];
-            const dateNum = d.getDate();
+            const dayName = dayNames[curr.getDay()];
+            const dateNum = curr.getDate();
             
             cell.innerHTML = `${dateNum} <small>${dayName}</small>`;
             if(dayName === "Sunday") cell.classList.add('sunday-text');
             else cell.classList.remove('sunday-text');
 
-            // Set Defaults for Layer 1 (Monday to Saturday)
+            // Default Layer 1
             const rows = document.getElementById('sheet').rows;
-            // Ang bawat date ay may 3 rows + 1 gap row after day 7
             let rowIdx = (i < 7) ? (i * 3) : (i * 3) + 1;
-            
-            const startSelect = rows[rowIdx].querySelector('.t-start');
-            const endSelect = rows[rowIdx].querySelector('.t-end');
-            const totalTd = rows[rowIdx].querySelector('.row-total');
+            const sBox = rows[rowIdx].querySelector('.t-start');
+            const eBox = rows[rowIdx].querySelector('.t-end');
+            const tTd = rows[rowIdx].querySelector('.row-total');
 
             if(dayName !== "Sunday") {
-                startSelect.value = "7:00 AM";
-                endSelect.value = "5:00 PM";
-                totalTd.textContent = "9.5";
+                sBox.value = "7:00 AM";
+                eBox.value = "5:00 PM";
+                tTd.textContent = "9.5";
             } else {
-                startSelect.value = "";
-                endSelect.value = "";
-                totalTd.textContent = "0.0";
+                sBox.value = ""; eBox.value = ""; tTd.textContent = "0.0";
             }
         }
         updateGrand();
@@ -208,7 +208,7 @@
             const e = new Date("1970/01/01 " + eVal);
             let diff = (e - s) / (1000 * 60 * 60);
             if(diff < 0) diff += 24;
-            if(diff >= 5) diff -= 0.5; // Lunch break
+            if(diff >= 5) diff -= 0.5; // Lunch
             total = diff > 0 ? diff : 0;
         }
         row.querySelector('.row-total').textContent = total.toFixed(2).replace('.00', '.0');
