@@ -2,46 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Frank S25 Ultra Pro</title>
     <style>
-        /* --- STYLES NG DASHBOARD (HINDI NAGBAGO) --- */
         body { background-color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: "Segoe UI", Roboto, sans-serif; overflow: hidden; touch-action: none; }
         .phone-frame { width: 360px; height: 740px; background: #000; border: 4px solid #333; border-radius: 35px; position: relative; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
-        .camera-hole { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background: #0a0a0a; border-radius: 50%; z-index: 5000; }
+        .camera-hole { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background: #0a0a0a; border-radius: 50%; z-index: 100; }
         .screen { width: 100%; height: 100%; background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop'); background-size: cover; background-position: center; padding: 20px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; }
         .status-bar { width: 100%; display: flex; justify-content: space-between; padding: 12px 20px 0 20px; color: white; font-size: 13px; font-weight: 600; z-index: 50; box-sizing: border-box; }
-        .main-clock { margin-top: 60px; color: white; text-align: center; text-decoration: none; width: 100%; display: block; }
+        
+        /* Clock Section */
+        .main-clock { margin-top: 60px; color: white; text-align: center; text-decoration: none; width: 100%; display: block; transition: 0.1s; }
+        .main-clock:active { transform: scale(0.95); opacity: 0.8; }
         #big-time { font-size: 72px; font-weight: 200; margin: 0; letter-spacing: -2px; }
         #big-date { font-size: 16px; margin-top: -5px; opacity: 0.9; }
+
+        /* App Grid Section */
         .app-grid { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: auto; margin-bottom: 50px; position: relative; }
-        .app-item { text-decoration: none; display: flex; flex-direction: column; align-items: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .icon { width: 58px; height: 58px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 30px; margin-bottom: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .label { color: white; font-size: 11px; text-shadow: 1px 1px 3px #000; }
-
-        /* --- DTR APP OVERLAY STYLES --- */
-        .app-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 4000; display: none; flex-direction: column; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .app-header { background: #fff; padding: 45px 20px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #007bff; font-weight: bold; }
-        .dtr-body { padding: 15px; flex: 1; overflow-y: auto; }
+        .app-item { text-decoration: none; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s; -webkit-tap-highlight-color: transparent; }
+        .icon { width: 58px; height: 58px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 30px; margin-bottom: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); pointer-events: none; }
+        .label { color: white; font-size: 11px; text-shadow: 1px 1px 3px #000; pointer-events: none; }
         
-        /* Autocomplete & Form */
-        .autocomplete-container { position: relative; width: 100%; }
-        .suggestions { position: absolute; top: 45px; left: 0; width: 100%; background: white; border: 1px solid #ddd; border-radius: 8px; z-index: 9999; display: none; max-height: 150px; overflow-y: auto; }
-        .suggestion-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
-        
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        .btn-log { background: #007bff; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 15px; }
-
-        /* Signature Popup */
-        #sigPopup { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 6000; display: none; flex-direction: column; justify-content: center; align-items: center; }
-        .sig-box { background: white; padding: 15px; border-radius: 20px; width: 90%; text-align: center; }
-        canvas { border: 2px dashed #007bff; border-radius: 10px; background: #fff; touch-action: none; width: 100%; height: 200px; }
-        
-        table { width: 100%; border-collapse: collapse; font-size: 11px; background: white; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #007bff; color: white; }
-        .sig-img { width: 50px; }
+        /* Dragging Effect */
+        .dragging { opacity: 0.5; transform: scale(1.1); }
     </style>
 </head>
 <body>
@@ -50,131 +33,105 @@
         <div class="camera-hole"></div>
         <div class="status-bar">
             <span id="status-time">00:00</span>
-            <div><span id="battery-level">100%</span> 🔋</div>
+            <div><span id="battery-level">--%</span> 🔋</div>
         </div>
 
         <div class="screen">
-            <div class="main-clock">
+            <a href="clock-app.html" class="main-clock">
                 <h1 id="big-time">00:00</h1>
                 <p id="big-date">Date Loading...</p>
-            </div>
+            </a>
 
-            <div class="app-grid">
-                <div class="app-item" onclick="openDTR()">
+            <div class="app-grid" id="appGrid">
+                <a href="dtr-app.html" class="app-item">
                     <div class="icon" style="background: white;">📅</div>
                     <span class="label">DTR</span>
-                </div>
-                <div class="app-item"><div class="icon" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5);">📹</div><span class="label">Tapo</span></div>
-            </div>
-        </div>
-
-        <div id="dtrOverlay" class="app-overlay">
-            <div class="app-header">
-                <span>DTR - Hamilton NZ</span>
-                <span onclick="closeDTR()" style="cursor:pointer; font-size:20px;">✕</span>
-            </div>
-            <div class="dtr-body">
-                <div class="autocomplete-container">
-                    <input type="text" id="siteIn" placeholder="Type Address..." oninput="getLoc(this.value)">
-                    <div id="results" class="suggestions"></div>
-                </div>
-                <input type="text" id="commIn" placeholder="Comment/Work Done">
-                <button class="btn-log" onclick="openSig()">✍️ Sign & Log</button>
-
-                <table id="dtrTable">
-                    <thead><tr><th>Address</th><th>Work</th><th>Sign</th></tr></thead>
-                    <tbody id="dtrBody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="sigPopup">
-            <div class="sig-box">
-                <h3>Sign with Finger</h3>
-                <canvas id="sigCanvas"></canvas>
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button onclick="clearSig()" style="flex:1; padding:10px;">Clear</button>
-                    <button onclick="saveDTR()" style="flex:1; padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">Save</button>
-                </div>
+                </a>
+                <a href="solar-app.html" class="app-item">
+                    <div class="icon" style="background: linear-gradient(135deg, #FF8C00, #FFD700);">☀️</div>
+                    <span class="label">Solar</span>
+                </a>
+                <a href="tapo://" class="app-item">
+                    <div class="icon" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5);">📹</div>
+                    <span class="label">Tapo</span>
+                </a>
+                <a href="messenger-app.html" class="app-item">
+                    <div class="icon" style="background: linear-gradient(135deg, #00B2FF, #006AFF);">💬</div>
+                    <span class="label">Chat</span>
+                </a>
+                <a href="camera-app.html" class="app-item">
+                    <div class="icon" style="background: #f0f0f0;">📷</div>
+                    <span class="label">Camera</span>
+                </a>
+                <a href="https://www.youtube.com" target="_blank" class="app-item">
+                    <div class="icon" style="background: white;">🛑</div>
+                    <span class="label">YouTube</span>
+                </a>
             </div>
         </div>
     </div>
 
     <script>
-        // 1. Clock Logic
+        // 1. Clock & Battery logic
         function updateClock() {
             const now = new Date();
-            const t = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
-            document.getElementById('status-time').textContent = t;
-            document.getElementById('big-time').textContent = t;
-            document.getElementById('big-date').textContent = now.toLocaleDateString('en-NZ', { weekday: 'long', month: 'long', day: 'numeric' });
+            const h = now.getHours().toString().padStart(2, '0');
+            const m = now.getMinutes().toString().padStart(2, '0');
+            const time = h + ":" + m;
+            document.getElementById('status-time').textContent = time;
+            document.getElementById('big-time').textContent = time;
+            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            document.getElementById('big-date').textContent = now.toLocaleDateString('en-PH', options);
         }
-        setInterval(updateClock, 1000); updateClock();
 
-        // 2. DTR Navigation
-        function openDTR() { document.getElementById('dtrOverlay').style.display = 'flex'; }
-        function closeDTR() { document.getElementById('dtrOverlay').style.display = 'none'; }
-
-        // 3. Smart Address Autocomplete
-        async function getLoc(val) {
-            const res = document.getElementById('results');
-            if(val.length < 3) { res.style.display = 'none'; return; }
+        async function updateBattery() {
             try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${val},+Hamilton,+NZ&limit=5`);
-                const data = await response.json();
-                res.innerHTML = "";
-                if(data.length > 0) {
-                    res.style.display = 'block';
-                    data.forEach(item => {
-                        const div = document.createElement('div');
-                        div.className = 'suggestion-item';
-                        div.textContent = item.display_name.split(', New Zealand')[0];
-                        div.onclick = () => { document.getElementById('siteIn').value = div.textContent; res.style.display = 'none'; };
-                        res.appendChild(div);
-                    });
-                }
-            } catch(e) {}
+                const b = await navigator.getBattery();
+                document.getElementById('battery-level').textContent = Math.floor(b.level * 100) + "%";
+            } catch (e) { document.getElementById('battery-level').textContent = "100%"; }
         }
 
-        // 4. Signature Logic
-        const canvas = document.getElementById('sigCanvas');
-        const ctx = canvas.getContext('2d');
-        let drawing = false;
+        // 2. Drag and Drop logic
+        const grid = document.getElementById('appGrid');
+        let dragItem = null;
 
-        function openSig() {
-            if(!document.getElementById('siteIn').value) return alert("Enter address!");
-            document.getElementById('sigPopup').style.display = 'flex';
-            canvas.width = canvas.offsetWidth;
-            canvas.height = 200;
-            ctx.lineWidth = 3; ctx.lineCap = "round";
-        }
+        grid.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.app-item')) {
+                dragItem = e.target.closest('.app-item');
+                dragItem.classList.add('dragging');
+            }
+        }, {passive: false});
 
-        canvas.addEventListener('touchstart', (e) => {
-            drawing = true;
-            const r = canvas.getBoundingClientRect();
-            ctx.beginPath(); ctx.moveTo(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
+        grid.addEventListener('touchmove', (e) => {
+            if (!dragItem) return;
             e.preventDefault();
-        });
-        canvas.addEventListener('touchmove', (e) => {
-            if(!drawing) return;
-            const r = canvas.getBoundingClientRect();
-            ctx.lineTo(e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
-            ctx.stroke();
-        });
-        canvas.addEventListener('touchend', () => drawing = false);
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            const closest = target ? target.closest('.app-item') : null;
 
-        function clearSig() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+            if (closest && closest !== dragItem) {
+                const children = Array.from(grid.children);
+                const dragIdx = children.indexOf(dragItem);
+                const targetIdx = children.indexOf(closest);
 
-        function saveDTR() {
-            const site = document.getElementById('siteIn').value;
-            const comm = document.getElementById('commIn').value;
-            const sig = canvas.toDataURL();
-            const row = document.getElementById('dtrBody').insertRow(0);
-            row.innerHTML = `<td>${site}</td><td>${comm}</td><td><img src="${sig}" class="sig-img"></td>`;
-            document.getElementById('sigPopup').style.display = 'none';
-            clearSig();
-            document.getElementById('siteIn').value = ""; document.getElementById('commIn').value = "";
-        }
+                if (dragIdx < targetIdx) {
+                    grid.insertBefore(dragItem, closest.nextSibling);
+                } else {
+                    grid.insertBefore(dragItem, closest);
+                }
+            }
+        }, {passive: false});
+
+        grid.addEventListener('touchend', () => {
+            if (dragItem) {
+                dragItem.classList.remove('dragging');
+                dragItem = null;
+            }
+        });
+
+        setInterval(updateClock, 1000);
+        updateClock();
+        updateBattery();
     </script>
 </body>
 </html>
