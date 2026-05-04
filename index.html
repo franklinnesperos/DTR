@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JP Interiors - Edit & Save DTR</title>
+    <title>JP Interiors - DTR with No Break Option</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: 'Arial', sans-serif; background: #444; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -27,21 +27,26 @@
         .input-row { border-bottom: 1px solid #000; margin-bottom: 10px; display: flex; font-size: 13px; }
         .input-row label { font-weight: bold; width: 120px; }
         select, input { border: none; outline: none; background: transparent; font-size: 13px; flex: 1; color: #000; }
-        
-        /* Disabled look but readable */
         input:disabled, select:disabled { color: #333; opacity: 1; cursor: not-allowed; }
 
         table { width: 100%; border-collapse: collapse; font-size: 10px; position: relative; z-index: 1; }
         th { background: #f0f0f0; border: 1px solid #999; padding: 5px; text-transform: uppercase; }
         td { border: 1px solid #999; padding: 2px; text-align: center; height: 22px; }
         
-        .date-col { background: #f9f9f9; font-weight: bold; width: 110px; text-align: left; padding-left: 5px; }
+        .date-col { background: #f9f9f9; font-weight: bold; width: 100px; text-align: left; padding-left: 5px; }
         .sunday-text { color: red !important; }
         .week-gap { height: 15px; background: #eee; border: none; }
         
-        select.t-select { width: 100%; border: none; appearance: none; text-align: center; font-size: 10px; }
+        .t-select { width: 100%; border: none; appearance: none; text-align: center; font-size: 10px; background: transparent; }
         .site-input { width: 100%; border: none; font-size: 10px; outline: none; background: transparent; }
+        .site-container { position: relative; }
+        .sugg { position: absolute; background: white; border: 1px solid #ddd; width: 100%; z-index: 100; display: none; text-align: left; box-shadow: 0 4px 8px rgba(0,0,0,0.15); border-radius: 4px; max-height: 120px; overflow-y: auto; }
+        .s-item { padding: 6px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 10px; color: black; }
         
+        /* Break Checkbox Style */
+        .break-cell { font-size: 9px; width: 45px; }
+        .break-chk { width: 14px; height: 14px; vertical-align: middle; cursor: pointer; }
+
         .footer-sig { margin-top: 40px; display: flex; justify-content: space-between; position: relative; z-index: 1; }
         .sig-box { text-align: center; width: 180px; }
         .sig-display { width: 100px; height: 40px; border-bottom: 1px solid #000; object-fit: contain; cursor: pointer; }
@@ -54,8 +59,8 @@
 <body>
 
     <div class="controls">
-        <button id="btnEdit" class="btn btn-edit" onclick="enableEditing()">✏️ Edit</button>
-        <button id="btnSave" class="btn btn-save" onclick="disableAndSave()" style="display:none;">💾 Save Entries</button>
+        <button id="btnEdit" class="btn btn-edit" onclick="enableEditing()">✏️ Edit Entries</button>
+        <button id="btnSave" class="btn btn-save" onclick="disableAndSave()" style="display:none;">💾 Save & Lock</button>
         <button class="btn btn-print" onclick="printPDF()">📄 Print PDF</button>
         <button class="btn btn-clear" onclick="clearAllData()">🗑️ Reset All</button>
     </div>
@@ -84,14 +89,15 @@
                     <th>DAY AND DATE</th>
                     <th>START</th>
                     <th>FINISH</th>
-                    <th>TOTAL HOURS</th>
+                    <th title="No lunch deduction">NO BREAK</th>
+                    <th>TOTAL</th>
                     <th>SITE / COMMENTS</th>
                 </tr>
             </thead>
             <tbody id="sheet"></tbody>
             <tfoot>
                 <tr style="font-weight:bold; background:#eee;">
-                    <td colspan="3" style="text-align:right; padding-right:10px;">GRAND TOTAL (14 DAYS)</td>
+                    <td colspan="4" style="text-align:right; padding-right:10px;">GRAND TOTAL (14 DAYS)</td>
                     <td id="grandTotal">0.0</td>
                     <td></td>
                 </tr>
@@ -116,7 +122,7 @@
             <canvas id="canvas"></canvas>
             <div style="margin-top:10px; display:flex; gap:10px;">
                 <button onclick="clearSig()" style="flex:1; padding:8px;">Clear</button>
-                <button onclick="saveSig()" style="flex:1; padding:8px; background:green; color:white; border:none;">Save Pirma</button>
+                <button onclick="saveSig()" style="flex:1; padding:8px; background:green; color:white; border:none;">Save</button>
             </div>
         </div>
     </div>
@@ -147,14 +153,43 @@
                         ${layer === 0 ? `<td class="date-col" rowspan="3" id="date-cell-${globalIdx}">---</td>` : ''}
                         <td><select class="t-select t-start" onchange="calc(this)" disabled>${timesList.map(t => `<option>${t}</option>`).join('')}</select></td>
                         <td><select class="t-select t-end" onchange="calc(this)" disabled>${timesList.map(t => `<option>${t}</option>`).join('')}</select></td>
+                        <td class="break-cell"><input type="checkbox" class="break-chk" onchange="calc(this)" disabled></td>
                         <td class="row-total" style="font-weight:bold">0.0</td>
-                        <td><input type="text" class="site-input" placeholder="..." disabled></td>
+                        <td class="site-container">
+                            <input type="text" class="site-input" placeholder="..." oninput="findSiteNZ(this)" disabled>
+                            <div class="sugg"></div>
+                        </td>
                     `;
                     body.appendChild(row);
                 }
             }
-            if(w === 0) body.innerHTML += `<tr class="week-gap"><td colspan="5"></td></tr>`;
+            if(w === 0) body.innerHTML += `<tr class="week-gap"><td colspan="6"></td></tr>`;
         }
+    }
+
+    function calc(el) {
+        const row = el.closest('tr');
+        const sVal = row.querySelector('.t-start').value;
+        const eVal = row.querySelector('.t-end').value;
+        const noBreak = row.querySelector('.break-chk').checked;
+        let total = 0;
+        if(sVal && eVal) {
+            const s = new Date("1970/01/01 " + sVal);
+            const e = new Date("1970/01/01 " + eVal);
+            let diff = (e - s) / (1000 * 60 * 60);
+            if(diff < 0) diff += 24;
+            // Normal: Minus 30 mins if >= 5 hours. IF "No Break" is checked, DON'T minus.
+            if(!noBreak && diff >= 5) diff -= 0.5;
+            total = diff > 0 ? diff : 0;
+        }
+        row.querySelector('.row-total').textContent = total.toFixed(2).replace('.00', '.0');
+        updateGrand();
+    }
+
+    function updateGrand() {
+        let sum = 0;
+        document.querySelectorAll('.row-total').forEach(td => sum += parseFloat(td.textContent));
+        document.getElementById('grandTotal').textContent = sum.toFixed(2);
     }
 
     function syncFromStart() {
@@ -172,30 +207,6 @@
         }
     }
 
-    function calc(el) {
-        const row = el.closest('tr');
-        const sVal = row.querySelector('.t-start').value;
-        const eVal = row.querySelector('.t-end').value;
-        let total = 0;
-        if(sVal && eVal) {
-            const s = new Date("1970/01/01 " + sVal);
-            const e = new Date("1970/01/01 " + eVal);
-            let diff = (e - s) / (1000 * 60 * 60);
-            if(diff < 0) diff += 24;
-            if(diff >= 5) diff -= 0.5;
-            total = diff > 0 ? diff : 0;
-        }
-        row.querySelector('.row-total').textContent = total.toFixed(2).replace('.00', '.0');
-        updateGrand();
-    }
-
-    function updateGrand() {
-        let sum = 0;
-        document.querySelectorAll('.row-total').forEach(td => sum += parseFloat(td.textContent));
-        document.getElementById('grandTotal').textContent = sum.toFixed(2);
-    }
-
-    // --- LOCK/UNLOCK LOGIC ---
     function enableEditing() {
         document.querySelectorAll('input, select').forEach(el => el.disabled = false);
         document.getElementById('btnEdit').style.display = 'none';
@@ -217,15 +228,15 @@
             data.entries.push({
                 s: row.querySelector('.t-start').value,
                 e: row.querySelector('.t-end').value,
-                site: row.querySelector('.site-input').value
+                site: row.querySelector('.site-input').value,
+                nb: row.querySelector('.break-chk').checked
             });
         });
-        localStorage.setItem('frank_dtr_final', JSON.stringify(data));
-        alert("Saved to memory!");
+        localStorage.setItem('frank_dtr_v5', JSON.stringify(data));
     }
 
     function loadData() {
-        const saved = localStorage.getItem('frank_dtr_final');
+        const saved = localStorage.getItem('frank_dtr_v5');
         if(!saved) return;
         const data = JSON.parse(saved);
         document.getElementById('userName').value = data.name;
@@ -238,6 +249,7 @@
                 rows[i].querySelector('.t-start').value = entry.s;
                 rows[i].querySelector('.t-end').value = entry.e;
                 rows[i].querySelector('.site-input').value = entry.site;
+                rows[i].querySelector('.break-chk').checked = entry.nb;
                 calc(rows[i].querySelector('.t-start'));
             }
         });
@@ -245,14 +257,29 @@
         if(sig) document.getElementById('sigDisplay').src = sig;
     }
 
-    function clearAllData() {
-        if(confirm("Babalik sa zero lahat. Sure ka?")) {
-            localStorage.clear();
-            location.reload();
-        }
+    async function findSiteNZ(inp) {
+        const box = inp.nextElementSibling;
+        if(inp.value.length < 3) { box.style.display='none'; return; }
+        try {
+            const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${inp.value},+New+Zealand&limit=5`);
+            const data = await r.json();
+            box.innerHTML = "";
+            if(data.length > 0) {
+                box.style.display='block';
+                data.forEach(d => {
+                    const item = document.createElement('div'); item.className='s-item';
+                    item.textContent = d.display_name.split(', New Zealand')[0];
+                    item.onclick = () => { inp.value = item.textContent; box.style.display='none'; };
+                    box.appendChild(item);
+                });
+            }
+        } catch(e) {}
     }
 
-    // Signature
+    function clearAllData() {
+        if(confirm("Babalik sa zero lahat. Sure ka?")) { localStorage.clear(); location.reload(); }
+    }
+
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     let drawing = false;
