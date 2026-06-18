@@ -98,11 +98,10 @@
         .btn-upload { background-color: #3b82f6; } 
         .btn-pdf { background-color: #ef4444; } 
         .btn-image { background-color: #10b981; } 
-        .btn-clear { background-color: #64748b; } /* Gray para sa Clear All */
+        .btn-clear { background-color: #64748b; } 
         .btn:hover { opacity: 0.9; }
         #fileInput { display: none; }
 
-        /* Itatago ang control panel kapag nag-print o nag-save */
         @media print {
             body { background-color: transparent; padding: 0; }
             .print-area { box-shadow: none; padding: 0; }
@@ -120,7 +119,7 @@
         </div>
 
         <div class="header-container">
-            <div class="header-text" id="headerText" contenteditable="true">
+            <div class="header-text" id="headerText" contenteditable="true" oninput="saveCurrentData()">
                 <h2>RESTLINK COLLEGE OF THE PHILIPPINES</h2>
                 <p>1071 Brgy. Kaligayahan, Quirino Highway, Novaliches, Quezon City</p>
                 <p><strong>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</strong></p>
@@ -141,27 +140,12 @@
                 </tr>
             </thead>
             <tbody id="tableBody">
-                <script>
-                    // Mag-generate ng 25 rows
-                    for (let i = 1; i <= 25; i++) {
-                        document.write(`
-                            <tr>
-                                <td class="col-no">${i}</td>
-                                <td class="col-name edit-name" contenteditable="true"></td>
-                                <td class="col-sig"></td>
-                                <td class="col-no">${i + 25}</td>
-                                <td class="col-name edit-name" contenteditable="true"></td>
-                                <td class="col-sig"></td>
-                            </tr>
-                        `);
-                    }
-                </script>
-            </tbody>
+                </tbody>
         </table>
 
         <div class="signatures">
-            <div class="sig-box" id="sigTeacher" contenteditable="true">Teacher's Assigned<br><br>Faculty, BSHM</div>
-            <div class="sig-box" id="sigStudent" contenteditable="true">Student's Representative<br><br>Mayor, BSHM 1113</div>
+            <div class="sig-box" id="sigTeacher" contenteditable="true" oninput="saveCurrentData()">Teacher's Assigned<br><br>Faculty, BSHM</div>
+            <div class="sig-box" id="sigStudent" contenteditable="true" oninput="saveCurrentData()">Student's Representative<br><br>Mayor, BSHM 1113</div>
         </div>
     </div>
 
@@ -182,36 +166,87 @@
     </div>
 
     <script>
-        // Load logo image
-        function loadLogo(event) {
-            const output = document.getElementById('logoImage');
-            const container = document.getElementById('logoContainer');
-            output.src = URL.createObjectURL(event.target.files[0]);
-            output.onload = function() {
-                URL.revokeObjectURL(output.src)
-            }
-            container.style.display = "block";
+        // Pandaigdigang variables para sa Drag at Posisyon
+        let xOffset = 0, yOffset = 0;
+        const logoContainer = document.getElementById('logoContainer');
+
+        // 1. GENERATE ROWS AT I-LOAD ANG MGA PANGALAN KUNG MERONG NA-SAVE
+        const tbody = document.getElementById('tableBody');
+        let savedNames = JSON.parse(localStorage.getItem('att_saved_names')) || Array(50).fill("");
+
+        let tableHTML = "";
+        for (let i = 1; i <= 25; i++) {
+            tableHTML += `
+                <tr>
+                    <td class="col-no">${i}</td>
+                    <td class="col-name edit-name" contenteditable="true" data-index="${i-1}" oninput="saveCurrentData()">${savedNames[i-1]}</td>
+                    <td class="col-sig"></td>
+                    <td class="col-no">${i + 25}</td>
+                    <td class="col-name edit-name" contenteditable="true" data-index="${i+24}" oninput="saveCurrentData()">${savedNames[i+24]}</td>
+                    <td class="col-sig"></td>
+                </tr>
+            `;
+        }
+        tbody.innerHTML = tableHTML;
+
+        // I-load ang naisave na Header at Signatures kung mayroon
+        if(localStorage.getItem('att_header')) document.getElementById('headerText').innerHTML = localStorage.getItem('att_header');
+        if(localStorage.getItem('att_sig_teacher')) document.getElementById('sigTeacher').innerHTML = localStorage.getItem('att_sig_teacher');
+        if(localStorage.getItem('att_sig_student')) document.getElementById('sigStudent').innerHTML = localStorage.getItem('att_sig_student');
+        
+        // I-load ang Logo kung mayroon
+        if(localStorage.getItem('att_logo_data')) {
+            document.getElementById('logoImage').src = localStorage.getItem('att_logo_data');
+            logoContainer.style.display = "block";
+            xOffset = parseFloat(localStorage.getItem('att_logo_x')) || 0;
+            yOffset = parseFloat(localStorage.getItem('att_logo_y')) || 0;
+            setTranslate(xOffset, yOffset, logoContainer);
         }
 
-        // Script para sa Drag and Drop ng Logo
-        const dragItem = document.getElementById("logoContainer");
-        const container = document.getElementById("attendanceSheet");
+        // 2. FUNCTION PARA AUTOMATIC MAG-SAVE HABANG NAG-SULAT KA
+        function saveCurrentData() {
+            // I-save ang mga pangalan sa table
+            const nameCells = document.querySelectorAll('.edit-name');
+            let namesArray = Array(50).fill("");
+            nameCells.forEach(cell => {
+                const idx = cell.getAttribute('data-index');
+                namesArray[idx] = cell.innerText;
+            });
+            localStorage.setItem('att_saved_names', JSON.stringify(namesArray));
 
+            // I-save ang mga salita sa header at baba
+            localStorage.setItem('att_header', document.getElementById('headerText').innerHTML);
+            localStorage.setItem('att_sig_teacher', document.getElementById('sigTeacher').innerHTML);
+            localStorage.setItem('att_sig_student', document.getElementById('sigStudent').innerHTML);
+        }
+
+        // Load logo kapag nag-upload
+        function loadLogo(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                document.getElementById('logoImage').src = reader.result;
+                localStorage.setItem('att_logo_data', reader.result); // I-save ang image sa memory
+                logoContainer.style.display = "block";
+            }
+            if (file) reader.readAsDataURL(file);
+        }
+
+        // Drag and Drop Script para sa Logo
+        const container = document.getElementById("attendanceSheet");
         let active = false;
         let currentX, currentY, initialX, initialY;
-        let xOffset = 0, yOffset = 0;
 
         container.addEventListener("touchstart", dragStart, false);
         container.addEventListener("touchend", dragEnd, false);
         container.addEventListener("touchmove", drag, false);
-
         container.addEventListener("mousedown", dragStart, false);
         container.addEventListener("mouseup", dragEnd, false);
         container.addEventListener("mousemove", drag, false);
 
         function dragStart(e) {
             let targetElement = e.target;
-            if (targetElement === dragItem || dragItem.contains(targetElement)) {
+            if (targetElement === logoContainer || logoContainer.contains(targetElement)) {
                 if (e.type === "touchstart") {
                     initialX = e.touches[0].clientX - xOffset;
                     initialY = e.touches[0].clientY - yOffset;
@@ -227,6 +262,9 @@
             initialX = currentX;
             initialY = currentY;
             active = false;
+            // I-save ang pwesto ng logo kapag binitawan
+            localStorage.setItem('att_logo_x', xOffset);
+            localStorage.setItem('att_logo_y', yOffset);
         }
 
         function drag(e) {
@@ -241,7 +279,7 @@
                 }
                 xOffset = currentX;
                 yOffset = currentY;
-                setTranslate(currentX, currentY, dragItem);
+                setTranslate(currentX, currentY, logoContainer);
             }
         }
 
@@ -249,15 +287,10 @@
             el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
         }
 
-        // Save as Photo Function
+        // Save as Photo
         function saveAsPhoto() {
-            const element = document.getElementById('attendanceSheet');
             if (document.activeElement) document.activeElement.blur();
-            
-            html2canvas(element, {
-                scale: 2,
-                useCORS: true
-            }).then(canvas => {
+            html2canvas(container, { scale: 2, useCORS: true }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = 'Attendance_Sheet.png';
                 link.href = canvas.toDataURL('image/png');
@@ -265,23 +298,11 @@
             });
         }
 
-        // BAGONG UTILITY: Clear All Function
+        // CLEAR ALL DATA FUNCTION (Dito permanenteng buburahin ang memory)
         function clearAllData() {
-            if (confirm("Sigurado ka bang nais mong burahin lahat ng pangalan at i-reset ang form?")) {
-                // Burahin ang lahat ng nakasulat sa Name cells
-                const nameCells = document.querySelectorAll('.edit-name');
-                nameCells.forEach(cell => cell.innerText = "");
-                
-                // Itago at i-reset ang logo
-                const logoContainer = document.getElementById('logoContainer');
-                const logoImage = document.getElementById('logoImage');
-                logoContainer.style.display = "none";
-                logoImage.src = "";
-                xOffset = 0; yOffset = 0;
-                setTranslate(0, 0, logoContainer);
-                document.getElementById('fileInput').value = "";
-
-                if (document.activeElement) document.activeElement.blur();
+            if (confirm("Sigurado ka bang nais mong burahin lahat ng na-save na pangalan at i-reset ang form?")) {
+                localStorage.clear(); // Burahin ang lahat ng tinatagong data
+                location.reload(); // I-refresh ang page para bumalik sa default
             }
         }
     </script>
