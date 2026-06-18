@@ -17,7 +17,7 @@
             margin: 0 auto;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             box-sizing: border-box;
-            position: relative; /* Kritikal para sa malayang paggalaw ng logo */
+            position: relative;
         }
 
         /* Layout para sa Header */
@@ -37,19 +37,19 @@
         .header-text h2 { font-size: 18px; }
         .header-text p { font-size: 14px; }
         
-        /* ISTILO NG LOGO NA PWEDENG I-GRAB AT I-DRAG */
+        /* Draggable Logo */
         .draggable-logo {
             position: absolute;
             top: 40px;
             left: 40px;
-            cursor: move; /* Babaguhin ang cursor para maging crosshair/move icon */
+            cursor: move;
             z-index: 100;
-            display: none; /* Lalabas lang kapag nag-upload ka na */
+            display: none;
         }
         .draggable-logo img {
-            width: 90px; /* Laki ng logo */
+            width: 90px;
             height: auto;
-            pointer-events: none; /* Para hindi ma-block ng image ang drag event */
+            pointer-events: none;
         }
         
         table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
@@ -95,13 +95,14 @@
             align-items: center;
             gap: 5px;
         }
-        .btn-upload { background-color: #3b82f6; } /* Asul para sa upload */
-        .btn-pdf { background-color: #ef4444; } /* Pula para sa PDF */
-        .btn-image { background-color: #10b981; } /* Berde para sa Photo */
+        .btn-upload { background-color: #3b82f6; } 
+        .btn-pdf { background-color: #ef4444; } 
+        .btn-image { background-color: #10b981; } 
+        .btn-clear { background-color: #64748b; } /* Gray para sa Clear All */
         .btn:hover { opacity: 0.9; }
-        #fileInput { display: none; } /* Itago ang default file input ng system */
+        #fileInput { display: none; }
 
-        /* KRITIKAL: Itatago ang control panel at upload features kapag nag-print o nag-save */
+        /* Itatago ang control panel kapag nag-print o nag-save */
         @media print {
             body { background-color: transparent; padding: 0; }
             .print-area { box-shadow: none; padding: 0; }
@@ -119,7 +120,7 @@
         </div>
 
         <div class="header-container">
-            <div class="header-text" contenteditable="true">
+            <div class="header-text" id="headerText" contenteditable="true">
                 <h2>RESTLINK COLLEGE OF THE PHILIPPINES</h2>
                 <p>1071 Brgy. Kaligayahan, Quirino Highway, Novaliches, Quezon City</p>
                 <p><strong>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</strong></p>
@@ -139,16 +140,17 @@
                     <th class="col-sig">Signature</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="tableBody">
                 <script>
+                    // Mag-generate ng 25 rows
                     for (let i = 1; i <= 25; i++) {
                         document.write(`
                             <tr>
                                 <td class="col-no">${i}</td>
-                                <td class="col-name" contenteditable="true"></td>
+                                <td class="col-name edit-name" contenteditable="true"></td>
                                 <td class="col-sig"></td>
                                 <td class="col-no">${i + 25}</td>
-                                <td class="col-name" contenteditable="true"></td>
+                                <td class="col-name edit-name" contenteditable="true"></td>
                                 <td class="col-sig"></td>
                             </tr>
                         `);
@@ -158,8 +160,8 @@
         </table>
 
         <div class="signatures">
-            <div class="sig-box" contenteditable="true">Teacher's Assigned<br><br>Faculty, BSHM</div>
-            <div class="sig-box" contenteditable="true">Student's Representative<br><br>Mayor, BSHM 1113</div>
+            <div class="sig-box" id="sigTeacher" contenteditable="true">Teacher's Assigned<br><br>Faculty, BSHM</div>
+            <div class="sig-box" id="sigStudent" contenteditable="true">Student's Representative<br><br>Mayor, BSHM 1113</div>
         </div>
     </div>
 
@@ -172,33 +174,32 @@
             📄 Save as PDF / Print
         </button>
         <button class="btn btn-image" onclick="saveAsPhoto()">
-            📷 Save as PHOTO (Image)
+            📷 Save as PHOTO
+        </button>
+        <button class="btn btn-clear" onclick="clearAllData()">
+            🗑️ Clear All
         </button>
     </div>
 
     <script>
-        // HAKBANG 1: I-load ang piniling larawan mula sa phone/PC
+        // Load logo image
         function loadLogo(event) {
             const output = document.getElementById('logoImage');
             const container = document.getElementById('logoContainer');
             output.src = URL.createObjectURL(event.target.files[0]);
             output.onload = function() {
-                URL.revokeObjectURL(output.src) // i-free ang memory
+                URL.revokeObjectURL(output.src)
             }
-            container.style.display = "block"; // Ipakita na ang logo element
+            container.style.display = "block";
         }
 
-        // HAKBANG 2: SCRIPT PARA SA PAG-DRAG NG LOGO (Gumagana sa PC at Touchscreen/Phone)
+        // Script para sa Drag and Drop ng Logo
         const dragItem = document.getElementById("logoContainer");
         const container = document.getElementById("attendanceSheet");
 
         let active = false;
-        let currentX;
-        let currentY;
-        let initialX;
-        let initialY;
-        let xOffset = 0;
-        let yOffset = 0;
+        let currentX, currentY, initialX, initialY;
+        let xOffset = 0, yOffset = 0;
 
         container.addEventListener("touchstart", dragStart, false);
         container.addEventListener("touchend", dragEnd, false);
@@ -210,7 +211,6 @@
 
         function dragStart(e) {
             let targetElement = e.target;
-            // Siguraduhing ang container ng logo o ang mismong image ang hinahawakan
             if (targetElement === dragItem || dragItem.contains(targetElement)) {
                 if (e.type === "touchstart") {
                     initialX = e.touches[0].clientX - xOffset;
@@ -245,4 +245,46 @@
             }
         }
 
-        function setTranslate(xPos
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
+        }
+
+        // Save as Photo Function
+        function saveAsPhoto() {
+            const element = document.getElementById('attendanceSheet');
+            if (document.activeElement) document.activeElement.blur();
+            
+            html2canvas(element, {
+                scale: 2,
+                useCORS: true
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'Attendance_Sheet.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // BAGONG UTILITY: Clear All Function
+        function clearAllData() {
+            if (confirm("Sigurado ka bang nais mong burahin lahat ng pangalan at i-reset ang form?")) {
+                // Burahin ang lahat ng nakasulat sa Name cells
+                const nameCells = document.querySelectorAll('.edit-name');
+                nameCells.forEach(cell => cell.innerText = "");
+                
+                // Itago at i-reset ang logo
+                const logoContainer = document.getElementById('logoContainer');
+                const logoImage = document.getElementById('logoImage');
+                logoContainer.style.display = "none";
+                logoImage.src = "";
+                xOffset = 0; yOffset = 0;
+                setTranslate(0, 0, logoContainer);
+                document.getElementById('fileInput').value = "";
+
+                if (document.activeElement) document.activeElement.blur();
+            }
+        }
+    </script>
+
+</body>
+</html>
