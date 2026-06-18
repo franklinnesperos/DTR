@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Sheet - Legal Bond</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @page { size: legal; margin: 0.5in; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f1f5f9; }
         
+        /* Container para sa pag-capture ng image */
+        .print-area {
+            background-color: white;
+            padding: 0.5in;
+            max-width: 8.5in;
+            margin: 0 auto;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+
         /* Layout para sa Header na may Logo */
         .header-container {
             display: flex;
@@ -27,7 +39,6 @@
             text-align: center;
             width: 100%;
             padding: 5px;
-            border: 1px dashed transparent;
         }
         .header-text h2, .header-text p { margin: 2px 0; }
         .header-text h2 { font-size: 18px; }
@@ -41,72 +52,134 @@
         .col-name { width: 35%; }
         .col-sig { width: 10%; }
         
-        /* Istilo kapag kiniki-click ang mga editable na parte para mag-type */
+        /* Istilo kapag nag-e-edit sa screen */
         [contenteditable="true"]:focus {
-            outline: none;
-            background-color: #fcf8e3; /* Banayad na dilaw para alam mong pwedeng sulatan */
-            border-radius: 4px;
+            outline: 2px solid #3b82f6;
+            background-color: #fef08a; /* Dilaw habang nagta-type para alam mong editable */
+            border-radius: 2px;
         }
         
-        /* Pag ipiprint na, mawawala ang mga kulay sa background ng ine-edit */
-        @media print {
-            [contenteditable="true"]:focus { background-color: transparent; }
-        }
-
         .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
         .sig-box { width: 40%; text-align: center; border-top: 1px solid #000; padding-top: 5px; font-size: 13px; }
+
+        /* Floating Control Panel sa ibaba ng screen */
+        .control-panel {
+            max-width: 8.5in;
+            margin: 20px auto;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            padding: 10px;
+            background: #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-pdf { background-color: #ef4444; } /* Pula para sa PDF */
+        .btn-image { background-color: #10b981; } /* Berde para sa Photo */
+        .btn:hover { opacity: 0.9; }
+
+        /* KRITIKAL: Itatago ang control panel kapag nag-print o nag-save bilang PDF */
+        @media print {
+            body { background-color: transparent; padding: 0; }
+            .print-area { box-shadow: none; padding: 0; }
+            .control-panel { display: none !important; }
+            [contenteditable="true"]:focus { background-color: transparent; outline: none; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="header-container">
-        <div class="logo-box">
-            <img src="logo.png" alt="School Logo" onerror="this.style.display='none'">
+    <div class="print-area" id="attendanceSheet">
+        <div class="header-container">
+            <div class="logo-box">
+                <img src="logo.png" alt="School Logo" onerror="this.style.display='none'">
+            </div>
+            
+            <div class="header-text" contenteditable="true">
+                <h2>RESTLINK COLLEGE OF THE PHILIPPINES</h2>
+                <p>1071 Brgy. Kaligayahan, Quirino Highway, Novaliches, Quezon City</p>
+                <p><strong>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</strong></p>
+                <p>1113</p>
+                <p><strong>GE 2 - READINGS IN PHILIPPINE HISTORY</strong></p>
+            </div>
         </div>
-        
-        <div class="header-text" contenteditable="true">
-            <h2>RESTLINK COLLEGE OF THE PHILIPPINES</h2>
-            <p>1071 Brgy. Kaligayahan, Quirino Highway, Novaliches, Quezon City</p>
-            <p><strong>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</strong></p>
-            <p>1113</p>
-            <p><strong>GE 2 - READINGS IN PHILIPPINE HISTORY</strong></p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-no">No.</th>
+                    <th class="col-name">Name</th>
+                    <th class="col-sig">Signature</th>
+                    <th class="col-no">No.</th>
+                    <th class="col-name">Name</th>
+                    <th class="col-sig">Signature</th>
+                </tr>
+            </thead>
+            <tbody>
+                <script>
+                    // Mag-generate ng 25 rows para sa kabuuang 50 slots (Lahat ng name cells ay editable)
+                    for (let i = 1; i <= 25; i++) {
+                        document.write(`
+                            <tr>
+                                <td class="col-no">${i}</td>
+                                <td class="col-name" contenteditable="true"></td>
+                                <td class="col-sig"></td>
+                                <td class="col-no">${i + 25}</td>
+                                <td class="col-name" contenteditable="true"></td>
+                                <td class="col-sig"></td>
+                            </tr>
+                        `);
+                    }
+                </script>
+            </tbody>
+        </table>
+
+        <div class="signatures">
+            <div class="sig-box" contenteditable="true">Teacher's Assigned<br><br>Faculty, BSHM</div>
+            <div class="sig-box" contenteditable="true">Student's Representative<br><br>Mayor, BSHM 1113</div>
         </div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th class="col-no">No.</th>
-                <th class="col-name">Name</th>
-                <th class="col-sig">Signature</th>
-                <th class="col-no">No.</th>
-                <th class="col-name">Name</th>
-                <th class="col-sig">Signature</th>
-            </tr>
-        </thead>
-        <tbody>
-            <script>
-                // Mag-generate ng 25 rows para maging 50 total (Lahat ng Name cells ay editable)
-                for (let i = 1; i <= 25; i++) {
-                    document.write(`
-                        <tr>
-                            <td class="col-no">${i}</td>
-                            <td class="col-name" contenteditable="true"></td>
-                            <td class="col-sig"></td>
-                            <td class="col-no">${i + 25}</td>
-                            <td class="col-name" contenteditable="true"></td>
-                            <td class="col-sig"></td>
-                        </tr>
-                    `);
-                }
-            </script>
-        </tbody>
-    </table>
-
-    <div class="signatures">
-        <div class="sig-box" contenteditable="true">Teacher's Assigned<br><br>Faculty, BSHM</div>
-        <div class="sig-box" contenteditable="true">Student's Representative<br><br>Mayor, BSHM 1113</div>
+    <div class="control-panel">
+        <button class="btn btn-pdf" onclick="window.print()">
+            📄 Save as PDF / Print
+        </button>
+        <button class="btn btn-image" onclick="saveAsPhoto()">
+            📷 Save as PHOTO (Image)
+        </button>
     </div>
+
+    <script>
+        // Function para i-convert ang div at i-download bilang malinis na Photo (.png)
+        function saveAsPhoto() {
+            const element = document.getElementById('attendanceSheet');
+            
+            // Temporaryong alisin ang dilaw na focus para malinis ang picture
+            if (document.activeElement) document.activeElement.blur();
+            
+            html2canvas(element, {
+                scale: 2, // Mas mataas na scale para malinaw ang text at hindi pixelated
+                useCORS: true
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'Attendance_Sheet.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+    </script>
 
 </body>
 </html>
