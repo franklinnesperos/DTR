@@ -17,28 +17,44 @@
         }
         .logo-box {
             position: absolute;
-            left: 20px; /* Pwesto ng logo sa kaliwa */
+            left: 20px;
         }
         .logo-box img {
-            width: 80px; /* Katamtamang laki ng logo */
+            width: 80px;
             height: auto;
         }
         .header-text {
             text-align: center;
+            width: 100%;
+            padding: 5px;
+            border: 1px dashed transparent;
         }
-        .header-text h2 { margin: 0; font-size: 18px; }
-        .header-text p { margin: 2px 0; font-size: 14px; }
+        .header-text h2, .header-text p { margin: 2px 0; }
+        .header-text h2 { font-size: 18px; }
+        .header-text p { font-size: 14px; }
         
         table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; text-align: center; }
+        th, td { border: 1px solid #000; padding: 6px 8px; font-size: 13px; vertical-align: middle; }
+        th { background-color: #f2f2f2; text-align: center; font-weight: bold; }
         
-        .col-no { width: 5%; text-align: center; }
+        .col-no { width: 5%; text-align: center; font-weight: bold; }
         .col-name { width: 35%; }
         .col-sig { width: 10%; }
         
+        /* Istilo kapag kiniki-click ang mga editable na parte para mag-type */
+        [contenteditable="true"]:focus {
+            outline: none;
+            background-color: #fcf8e3; /* Banayad na dilaw para alam mong pwedeng sulatan */
+            border-radius: 4px;
+        }
+        
+        /* Pag ipiprint na, mawawala ang mga kulay sa background ng ine-edit */
+        @media print {
+            [contenteditable="true"]:focus { background-color: transparent; }
+        }
+
         .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
-        .sig-box { width: 40%; text-align: center; border-top: 1px solid #000; padding-top: 5px; }
+        .sig-box { width: 40%; text-align: center; border-top: 1px solid #000; padding-top: 5px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -48,7 +64,7 @@
             <img src="logo.png" alt="School Logo" onerror="this.style.display='none'">
         </div>
         
-        <div class="header-text">
+        <div class="header-text" contenteditable="true">
             <h2>RESTLINK COLLEGE OF THE PHILIPPINES</h2>
             <p>1071 Brgy. Kaligayahan, Quirino Highway, Novaliches, Quezon City</p>
             <p><strong>BACHELOR OF SCIENCE IN HOSPITALITY MANAGEMENT</strong></p>
@@ -70,16 +86,16 @@
         </thead>
         <tbody>
             <script>
-                // Mag-generate ng 25 rows para maging 50 total
+                // Mag-generate ng 25 rows para maging 50 total (Lahat ng Name cells ay editable)
                 for (let i = 1; i <= 25; i++) {
                     document.write(`
                         <tr>
                             <td class="col-no">${i}</td>
-                            <td></td>
-                            <td></td>
+                            <td class="col-name" contenteditable="true"></td>
+                            <td class="col-sig"></td>
                             <td class="col-no">${i + 25}</td>
-                            <td></td>
-                            <td></td>
+                            <td class="col-name" contenteditable="true"></td>
+                            <td class="col-sig"></td>
                         </tr>
                     `);
                 }
@@ -88,8 +104,8 @@
     </table>
 
     <div class="signatures">
-        <div class="sig-box">Teacher's Assigned<br><br>Faculty, BSHM</div>
-        <div class="sig-box">Student's Representative<br><br>Mayor, BSHM 1113</div>
+        <div class="sig-box" contenteditable="true">Teacher's Assigned<br><br>Faculty, BSHM</div>
+        <div class="sig-box" contenteditable="true">Student's Representative<br><br>Mayor, BSHM 1113</div>
     </div>
 
 </body>
