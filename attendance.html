@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @page { size: legal; margin: 0.5in; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f1f5f9; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f1f5f9; user-select: none; }
         
         /* Container para sa pag-capture ng image */
         .print-area {
@@ -17,50 +17,58 @@
             margin: 0 auto;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             box-sizing: border-box;
+            position: relative; /* Kritikal para sa malayang paggalaw ng logo */
         }
 
-        /* Layout para sa Header na may Logo */
+        /* Layout para sa Header */
         .header-container {
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 20px;
-            position: relative;
-        }
-        .logo-box {
-            position: absolute;
-            left: 20px;
-        }
-        .logo-box img {
-            width: 80px;
-            height: auto;
+            min-height: 100px;
         }
         .header-text {
             text-align: center;
             width: 100%;
             padding: 5px;
         }
-        .header-text h2, .header-text p { margin: 2px 0; }
+        .header-text h2, .header-text p { margin: 2px 0; user-select: text; }
         .header-text h2 { font-size: 18px; }
         .header-text p { font-size: 14px; }
+        
+        /* ISTILO NG LOGO NA PWEDENG I-GRAB AT I-DRAG */
+        .draggable-logo {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            cursor: move; /* Babaguhin ang cursor para maging crosshair/move icon */
+            z-index: 100;
+            display: none; /* Lalabas lang kapag nag-upload ka na */
+        }
+        .draggable-logo img {
+            width: 90px; /* Laki ng logo */
+            height: auto;
+            pointer-events: none; /* Para hindi ma-block ng image ang drag event */
+        }
         
         table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
         th, td { border: 1px solid #000; padding: 6px 8px; font-size: 13px; vertical-align: middle; }
         th { background-color: #f2f2f2; text-align: center; font-weight: bold; }
         
         .col-no { width: 5%; text-align: center; font-weight: bold; }
-        .col-name { width: 35%; }
+        .col-name { width: 35%; user-select: text; }
         .col-sig { width: 10%; }
         
         /* Istilo kapag nag-e-edit sa screen */
         [contenteditable="true"]:focus {
             outline: 2px solid #3b82f6;
-            background-color: #fef08a; /* Dilaw habang nagta-type para alam mong editable */
+            background-color: #fef08a;
             border-radius: 2px;
         }
         
         .signatures { display: flex; justify-content: space-between; margin-top: 50px; }
-        .sig-box { width: 40%; text-align: center; border-top: 1px solid #000; padding-top: 5px; font-size: 13px; }
+        .sig-box { width: 40%; text-align: center; border-top: 1px solid #000; padding-top: 5px; font-size: 13px; user-select: text; }
 
         /* Floating Control Panel sa ibaba ng screen */
         .control-panel {
@@ -73,6 +81,7 @@
             background: #e2e8f0;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
         }
         .btn {
             padding: 10px 20px;
@@ -86,11 +95,13 @@
             align-items: center;
             gap: 5px;
         }
+        .btn-upload { background-color: #3b82f6; } /* Asul para sa upload */
         .btn-pdf { background-color: #ef4444; } /* Pula para sa PDF */
         .btn-image { background-color: #10b981; } /* Berde para sa Photo */
         .btn:hover { opacity: 0.9; }
+        #fileInput { display: none; } /* Itago ang default file input ng system */
 
-        /* KRITIKAL: Itatago ang control panel kapag nag-print o nag-save bilang PDF */
+        /* KRITIKAL: Itatago ang control panel at upload features kapag nag-print o nag-save */
         @media print {
             body { background-color: transparent; padding: 0; }
             .print-area { box-shadow: none; padding: 0; }
@@ -102,11 +113,12 @@
 <body>
 
     <div class="print-area" id="attendanceSheet">
+        
+        <div id="logoContainer" class="draggable-logo">
+            <img id="logoImage" src="" alt="Uploaded Logo">
+        </div>
+
         <div class="header-container">
-            <div class="logo-box">
-                <img src="logo.png" alt="School Logo" onerror="this.style.display='none'">
-            </div>
-            
             <div class="header-text" contenteditable="true">
                 <h2>RESTLINK COLLEGE OF THE PHILIPPINES</h2>
                 <p>1071 Brgy. Kaligayahan, Quirino Highway, Novaliches, Quezon City</p>
@@ -129,7 +141,6 @@
             </thead>
             <tbody>
                 <script>
-                    // Mag-generate ng 25 rows para sa kabuuang 50 slots (Lahat ng name cells ay editable)
                     for (let i = 1; i <= 25; i++) {
                         document.write(`
                             <tr>
@@ -153,6 +164,10 @@
     </div>
 
     <div class="control-panel">
+        <input type="file" id="fileInput" accept="image/*" onchange="loadLogo(event)">
+        <button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">
+            🖼️ Upload Logo
+        </button>
         <button class="btn btn-pdf" onclick="window.print()">
             📄 Save as PDF / Print
         </button>
@@ -162,24 +177,72 @@
     </div>
 
     <script>
-        // Function para i-convert ang div at i-download bilang malinis na Photo (.png)
-        function saveAsPhoto() {
-            const element = document.getElementById('attendanceSheet');
-            
-            // Temporaryong alisin ang dilaw na focus para malinis ang picture
-            if (document.activeElement) document.activeElement.blur();
-            
-            html2canvas(element, {
-                scale: 2, // Mas mataas na scale para malinaw ang text at hindi pixelated
-                useCORS: true
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'Attendance_Sheet.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-            });
+        // HAKBANG 1: I-load ang piniling larawan mula sa phone/PC
+        function loadLogo(event) {
+            const output = document.getElementById('logoImage');
+            const container = document.getElementById('logoContainer');
+            output.src = URL.createObjectURL(event.target.files[0]);
+            output.onload = function() {
+                URL.revokeObjectURL(output.src) // i-free ang memory
+            }
+            container.style.display = "block"; // Ipakita na ang logo element
         }
-    </script>
 
-</body>
-</html>
+        // HAKBANG 2: SCRIPT PARA SA PAG-DRAG NG LOGO (Gumagana sa PC at Touchscreen/Phone)
+        const dragItem = document.getElementById("logoContainer");
+        const container = document.getElementById("attendanceSheet");
+
+        let active = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        container.addEventListener("touchstart", dragStart, false);
+        container.addEventListener("touchend", dragEnd, false);
+        container.addEventListener("touchmove", drag, false);
+
+        container.addEventListener("mousedown", dragStart, false);
+        container.addEventListener("mouseup", dragEnd, false);
+        container.addEventListener("mousemove", drag, false);
+
+        function dragStart(e) {
+            let targetElement = e.target;
+            // Siguraduhing ang container ng logo o ang mismong image ang hinahawakan
+            if (targetElement === dragItem || dragItem.contains(targetElement)) {
+                if (e.type === "touchstart") {
+                    initialX = e.touches[0].clientX - xOffset;
+                    initialY = e.touches[0].clientY - yOffset;
+                } else {
+                    initialX = e.clientX - xOffset;
+                    initialY = e.clientY - yOffset;
+                }
+                active = true;
+            }
+        }
+
+        function dragEnd() {
+            initialX = currentX;
+            initialY = currentY;
+            active = false;
+        }
+
+        function drag(e) {
+            if (active) {
+                e.preventDefault();
+                if (e.type === "touchmove") {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+                xOffset = currentX;
+                yOffset = currentY;
+                setTranslate(currentX, currentY, dragItem);
+            }
+        }
+
+        function setTranslate(xPos
